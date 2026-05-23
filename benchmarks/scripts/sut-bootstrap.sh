@@ -86,8 +86,9 @@ EOF
 fi
 
 CH_ASYNC_INSERT_VAL="${CH_ASYNC_INSERT:-0}"
-echo "bringing up compose stack (mode=${MODE}, CH_ASYNC_INSERT=${CH_ASYNC_INSERT_VAL}) on ${SUT_IP}" >&2
-bench_ssh "${SUT_IP}" "cd /opt/traceway && BENCH_PORT=80 CH_ASYNC_INSERT=${CH_ASYNC_INSERT_VAL} docker compose ${compose_args[*]} up -d --build"
+SQLITE_BUFFERED_INSERT_VAL="${SQLITE_BUFFERED_INSERT:-0}"
+echo "bringing up compose stack (mode=${MODE}, CH_ASYNC_INSERT=${CH_ASYNC_INSERT_VAL}, SQLITE_BUFFERED_INSERT=${SQLITE_BUFFERED_INSERT_VAL}) on ${SUT_IP}" >&2
+bench_ssh "${SUT_IP}" "cd /opt/traceway && BENCH_PORT=80 CH_ASYNC_INSERT=${CH_ASYNC_INSERT_VAL} SQLITE_BUFFERED_INSERT=${SQLITE_BUFFERED_INSERT_VAL} docker compose ${compose_args[*]} up -d --build"
 
 echo "polling /health on ${SUT_IP}" >&2
 deadline=$(( $(date +%s) + 600 ))   # cold compose build can hit 10 min on small tiers

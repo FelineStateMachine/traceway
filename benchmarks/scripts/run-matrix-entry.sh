@@ -67,13 +67,17 @@ SUT_PUBLIC_IP=$(printf '%s' "${INFRA_JSON}" | jq -r '.sutPublicIp')
 SUT_PRIVATE_IP=$(printf '%s' "${INFRA_JSON}" | jq -r '.sutPrivateIp')
 LOADGEN_PUBLIC_IP=$(printf '%s' "${INFRA_JSON}" | jq -r '.loadgenPublicIp')
 
-# 2. Bring up the backend on the SUT. CH_ASYNC_INSERT propagates through to
-# the docker compose env via sut-bootstrap.sh.
+# 2. Bring up the backend on the SUT. CH_ASYNC_INSERT and
+# SQLITE_BUFFERED_INSERT propagate through to the docker compose env via
+# sut-bootstrap.sh. "async" means "opt-in to buffered server-side ingest with
+# weaker durability" — sets both env vars; the mode-specific compose file
+# only honours the one it cares about.
 async_suffix=""
 if [[ "${ASYNC_FLAG}" == "async" ]]; then
     export CH_ASYNC_INSERT=1
+    export SQLITE_BUFFERED_INSERT=1
     async_suffix="-async"
-    echo "CH_ASYNC_INSERT=1 (async-insert benchmark pass)" >&2
+    echo "async pass: CH_ASYNC_INSERT=1, SQLITE_BUFFERED_INSERT=1" >&2
 fi
 "${SCRIPT_DIR}/sut-bootstrap.sh" "${SUT_PUBLIC_IP}" "${MODE}"
 

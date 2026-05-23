@@ -10,6 +10,7 @@ services:
       SQLITE_RETENTION_DAYS: "0"
       SESSION_RECORDING_RETENTION_DAYS: "0"
       GIN_MODE: "release"
+      SQLITE_BUFFERED_INSERT: "${SQLITE_BUFFERED_INSERT:-0}"
     volumes:
       - traceway-bench-sqlite-data:/data
     restart: "no"

@@ -121,7 +121,8 @@ async_arg=""
 if [[ "${ASYNC}" -eq 1 ]]; then
     async_arg="async"
     export CH_ASYNC_INSERT=1
-    echo "CH_ASYNC_INSERT=1 — async-insert benchmark pass; output files will get -async suffix" >&2
+    export SQLITE_BUFFERED_INSERT=1
+    echo "async pass: CH_ASYNC_INSERT=1 (pgch/managed-ch) + SQLITE_BUFFERED_INSERT=1 (sqlite); output files get -async suffix" >&2
 fi
 
 failures=()

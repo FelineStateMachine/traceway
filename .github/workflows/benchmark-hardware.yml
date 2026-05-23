@@ -34,7 +34,7 @@ on:
         required: true
         default: 'nbg1'
       async_insert:
-        description: 'When true, sets CH_ASYNC_INSERT=1 on the SUT for this dispatch. Result files gain a -async suffix so paired bars can be rendered alongside the default (off) pass.'
+        description: 'When true, opts into buffered server-side ingest on the SUT — sets CH_ASYNC_INSERT=1 (pgch/managed-ch) and SQLITE_BUFFERED_INSERT=1 (sqlite). Result files gain a -async suffix so paired bars can be rendered alongside the default (off) pass.'
         required: true
         type: boolean
         default: false
