@@ -19,16 +19,30 @@ type chError struct {
 	LastErrorTime string `json:"lastErrorTime,omitempty"`
 }
 
+// metricBufferInfo mirrors the backend's MetricBufferInfo and reports the
+// SQLite async-insert buffer state. Populated only in sqlite-mode builds with
+// SQLITE_BUFFERED_INSERT=1; nil otherwise.
+type metricBufferInfo struct {
+	Enabled     bool  `json:"enabled"`
+	Capacity    int   `json:"capacity"`
+	Depth       int   `json:"depth"`
+	Enqueued    int64 `json:"enqueued"`
+	Flushed     int64 `json:"flushed"`
+	Dropped     int64 `json:"dropped"`
+	FlushErrors int64 `json:"flushErrors"`
+}
+
 type chSnapshot struct {
-	Reachable        bool         `json:"reachable"`
-	UptimeSec        int64        `json:"uptimeSec"`
-	PartsCount       int64        `json:"partsCount"`
-	PartsByTable     []tableParts `json:"partsByTable,omitempty"`
-	ActiveMerges     int64        `json:"activeMerges"`
-	LongestMergeSec  float64      `json:"longestMergeSec"`
-	ErrorsRecent     []chError    `json:"errorsRecent,omitempty"`
-	MemoryUsageBytes int64        `json:"memoryUsageBytes,omitempty"`
-	MemoryTotalBytes int64        `json:"memoryTotalBytes,omitempty"`
+	Reachable        bool              `json:"reachable"`
+	UptimeSec        int64             `json:"uptimeSec"`
+	PartsCount       int64             `json:"partsCount"`
+	PartsByTable     []tableParts      `json:"partsByTable,omitempty"`
+	ActiveMerges     int64             `json:"activeMerges"`
+	LongestMergeSec  float64           `json:"longestMergeSec"`
+	ErrorsRecent     []chError         `json:"errorsRecent,omitempty"`
+	MemoryUsageBytes int64             `json:"memoryUsageBytes,omitempty"`
+	MemoryTotalBytes int64             `json:"memoryTotalBytes,omitempty"`
+	MetricBuffer     *metricBufferInfo `json:"metricBuffer,omitempty"`
 }
 
 // healthDeepBody mirrors the backend HealthDeepResponse with its JSON tags. The
@@ -36,15 +50,16 @@ type chSnapshot struct {
 // `uptimeSec` in our embedded snapshot so the bench JSON stays consistent with
 // other loadgen fields.
 type healthDeepBody struct {
-	CHReachable      bool         `json:"chReachable"`
-	CHUptimeSec      int64        `json:"chUptimeSec"`
-	PartsCount       int64        `json:"partsCount"`
-	PartsByTable     []tableParts `json:"partsByTable"`
-	ActiveMerges     int64        `json:"activeMerges"`
-	LongestMergeSec  float64      `json:"longestMergeSec"`
-	ErrorsRecent     []chError    `json:"errorsRecent"`
-	MemoryUsageBytes int64        `json:"memoryUsageBytes"`
-	MemoryTotalBytes int64        `json:"memoryTotalBytes"`
+	CHReachable      bool              `json:"chReachable"`
+	CHUptimeSec      int64             `json:"chUptimeSec"`
+	PartsCount       int64             `json:"partsCount"`
+	PartsByTable     []tableParts      `json:"partsByTable"`
+	ActiveMerges     int64             `json:"activeMerges"`
+	LongestMergeSec  float64           `json:"longestMergeSec"`
+	ErrorsRecent     []chError         `json:"errorsRecent"`
+	MemoryUsageBytes int64             `json:"memoryUsageBytes"`
+	MemoryTotalBytes int64             `json:"memoryTotalBytes"`
+	MetricBuffer     *metricBufferInfo `json:"metricBuffer"`
 }
 
 // fetchCHSnapshot pings the backend's /health/deep endpoint and translates the
@@ -96,5 +111,6 @@ func fetchCHSnapshot(ctx context.Context, cfg config, client *http.Client) chSna
 		ErrorsRecent:     body.ErrorsRecent,
 		MemoryUsageBytes: body.MemoryUsageBytes,
 		MemoryTotalBytes: body.MemoryTotalBytes,
+		MetricBuffer:     body.MetricBuffer,
 	}
 }

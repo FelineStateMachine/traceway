@@ -37,6 +37,14 @@ func (r *metricPointRepository) InsertAsync(ctx context.Context, points []models
 		return nil
 	}
 
+	// Buffered async path: HTTP returns 200 in microseconds after enqueueing.
+	// Background goroutine drains the buffer; overflow surfaces as 500 via
+	// AbortWithError in the OTel controller. Enabled with
+	// SQLITE_BUFFERED_INSERT=1. See metric_point_async_writer_sqlite.go.
+	if sqliteBufferedMetricsEnabled {
+		return enqueueMetricPoints(points)
+	}
+
 	tx, err := db.TelemetryDB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
