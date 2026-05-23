@@ -32,6 +32,10 @@ func init() {
 	})
 }
 
+// maxMetricPointsPerInsert caps each multi-row INSERT to stay safely under
+// SQLite's default 32766-parameter limit (5 columns × 5000 rows = 25000 params).
+const maxMetricPointsPerInsert = 5000
+
 func (r *metricPointRepository) InsertAsync(ctx context.Context, points []models.MetricPoint) error {
 	if len(points) == 0 {
 		return nil
@@ -43,27 +47,45 @@ func (r *metricPointRepository) InsertAsync(ctx context.Context, points []models
 	}
 	defer tx.Rollback()
 
-	for _, p := range points {
-		tags := NewSQLiteJSONMap(p.Tags)
-		tagsVal, _ := tags.Value()
-		query, args, err := lit.ParseNamedQuery(db.Driver,
-			"INSERT INTO metric_points (project_id, name, value, tags, recorded_at) VALUES (:project_id, :name, :value, :tags, :recorded_at)",
-			lit.P{
-				"project_id":  p.ProjectId,
-				"name":        p.Name,
-				"value":       p.Value,
-				"tags":        tagsVal,
-				"recorded_at": NewSQLiteTime(p.RecordedAt),
-			})
-		if err != nil {
-			return err
+	for start := 0; start < len(points); start += maxMetricPointsPerInsert {
+		end := start + maxMetricPointsPerInsert
+		if end > len(points) {
+			end = len(points)
 		}
-		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+		if err := insertMetricPointsChunk(ctx, tx, points[start:end]); err != nil {
 			return err
 		}
 	}
 
 	return tx.Commit()
+}
+
+// insertMetricPointsChunk builds and executes a single multi-row INSERT for up
+// to maxMetricPointsPerInsert rows. One statement parse, one Exec, all values
+// bound positionally; SQLite drivers call .Value() on SQLiteJSONMap/SQLiteTime
+// automatically since they implement driver.Valuer.
+func insertMetricPointsChunk(ctx context.Context, tx *sql.Tx, chunk []models.MetricPoint) error {
+	var sb strings.Builder
+	sb.Grow(len("INSERT INTO metric_points (project_id, name, value, tags, recorded_at) VALUES ") + len(chunk)*len("(?, ?, ?, ?, ?), "))
+	sb.WriteString("INSERT INTO metric_points (project_id, name, value, tags, recorded_at) VALUES ")
+	args := make([]any, 0, len(chunk)*5)
+	for i, p := range chunk {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString("(?, ?, ?, ?, ?)")
+		args = append(args,
+			p.ProjectId,
+			p.Name,
+			p.Value,
+			NewSQLiteJSONMap(p.Tags),
+			NewSQLiteTime(p.RecordedAt),
+		)
+	}
+	if _, err := tx.ExecContext(ctx, sb.String(), args...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *metricPointRepository) QueryTimeSeries(ctx context.Context, projectId uuid.UUID, name string, from, to time.Time, intervalMinutes int, aggregation string, tagFilters map[string]string, groupBy string) (map[string][]models.TimeSeriesPoint, error) {
