@@ -12,19 +12,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/tracewayapp/lit/v2"
 	"github.com/tracewayapp/traceway/backend/app/db"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func setupRetentionTestDB(t *testing.T) {
 	t.Helper()
 
-	mainDB, err := sql.Open("sqlite3", ":memory:")
+	mainDB, err := sql.Open(testSQLiteDriver, ":memory:")
 	if err != nil {
 		t.Fatalf("open main: %v", err)
 	}
 	mainDB.SetMaxOpenConns(1)
 
-	telDB, err := sql.Open("sqlite3", ":memory:")
+	telDB, err := sql.Open(testSQLiteDriver, ":memory:")
 	if err != nil {
 		t.Fatalf("open telemetry: %v", err)
 	}
