@@ -5,6 +5,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -43,22 +44,19 @@ func (r *metricPointRepository) InsertAsync(ctx context.Context, points []models
 	}
 	defer tx.Rollback()
 
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO metric_points (project_id, name, value, tags, recorded_at) VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
 	for _, p := range points {
-		tags := NewSQLiteJSONMap(p.Tags)
-		tagsVal, _ := tags.Value()
-		query, args, err := lit.ParseNamedQuery(db.Driver,
-			"INSERT INTO metric_points (project_id, name, value, tags, recorded_at) VALUES (:project_id, :name, :value, :tags, :recorded_at)",
-			lit.P{
-				"project_id":  p.ProjectId,
-				"name":        p.Name,
-				"value":       p.Value,
-				"tags":        tagsVal,
-				"recorded_at": NewSQLiteTime(p.RecordedAt),
-			})
-		if err != nil {
-			return err
+		tags := "{}"
+		if p.Tags != nil {
+			b, _ := json.Marshal(p.Tags)
+			tags = string(b)
 		}
-		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+		if _, err := stmt.ExecContext(ctx, p.ProjectId.String(), p.Name, p.Value, tags, p.RecordedAt.UTC().Format(time.RFC3339Nano)); err != nil {
 			return err
 		}
 	}
