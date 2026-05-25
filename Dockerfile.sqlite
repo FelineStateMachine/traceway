@@ -27,7 +27,7 @@ FROM golang:1.25-alpine AS backend-builder
 
 WORKDIR /app/backend
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git gcc musl-dev
 
 COPY backend/ ./
 
@@ -37,9 +37,7 @@ RUN go mod edit -dropreplace=go.tracewayapp.com -dropreplace=go.tracewayapp.com/
 RUN go mod tidy
 RUN go mod download
 
-# Build WITHOUT the pgch tag so the SQLite codepath in app/db/db_sqlite.go
-# is selected. modernc.org/sqlite is pure Go, so CGO_ENABLED=0 is fine.
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /traceway ./cmd/traceway
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /traceway ./cmd/traceway
 
 # ==============================================================================
 # Stage 3: Minimal runtime image

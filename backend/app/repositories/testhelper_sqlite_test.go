@@ -9,13 +9,13 @@ import (
 	"github.com/tracewayapp/lit/v2"
 	"github.com/tracewayapp/traceway/backend/app/db"
 	"github.com/tracewayapp/traceway/backend/app/models"
-	_ "modernc.org/sqlite"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func setupTestDB(t *testing.T) {
 	t.Helper()
 
-	mainDB, err := sql.Open("sqlite", ":memory:")
+	mainDB, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to open in-memory sqlite (main): %v", err)
 	}
@@ -27,7 +27,7 @@ func setupTestDB(t *testing.T) {
 		t.Fatalf("failed to set WAL mode: %v", err)
 	}
 
-	telemetryDB, err := sql.Open("sqlite", ":memory:")
+	telemetryDB, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to open in-memory sqlite (telemetry): %v", err)
 	}
