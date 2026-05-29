@@ -1,0 +1,155 @@
+# CLI
+
+import { Callout, Steps } from "nextra/components";
+
+The **Traceway CLI** (`traceway`) is a Go command-line client for querying your Traceway data — exceptions, logs, endpoints, and metrics — straight from a terminal. It's built to be first-class for both humans (with `gh`-style ergonomics) and LLM agents (stable JSON output, predictable exit codes, no hidden prompts).
+
+<Callout type="info">
+  Full source, the command reference, and the contributor guide live in the
+  monorepo at
+  [github.com/tracewayapp/traceway/tree/main/cli](https://github.com/tracewayapp/traceway/tree/main/cli).
+</Callout>
+
+## Install
+
+<Steps>
+
+### Install the binary
+
+**Linux / macOS** (requires `curl` and `tar`):
+
+```bash
+curl -fsSL https://cli.tracewayapp.com/install.sh | bash
+```
+
+**Windows** (PowerShell):
+
+```powershell
+iwr -useb https://cli.tracewayapp.com/install.ps1 | iex
+```
+
+The installer downloads the release archive, verifies its SHA-256 checksum, and drops the `traceway` binary on your `PATH`. Prefer to do it by hand? Grab an archive from the [releases page](https://github.com/tracewayapp/traceway/releases) (tagged `cli/vX.Y.Z`), check it against `checksums.txt`, and move `traceway` somewhere on your `PATH`.
+
+### Log in
+
+```bash
+traceway login --url https://cloud.tracewayapp.com
+```
+
+Prompts for your email and password and stores a JWT for the active profile. Point `--url` at your own host when self-hosting.
+
+### Pick a project
+
+```bash
+traceway projects list
+traceway projects use <project-id>
+```
+
+The selected project is remembered, so later commands don't need to repeat it.
+
+</Steps>
+
+Installer knobs (set before the pipe):
+
+| Var                    | Purpose                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `TRACEWAY_CLI_VERSION` | Install a specific version (`X.Y.Z`) instead of the published default.             |
+| `TRACEWAY_BIN_DIR`     | Install directory. Default `/usr/local/bin`; set e.g. `$HOME/.local/bin` to skip `sudo`. |
+
+### From source
+
+The CLI is a standalone Go module. With the repo checked out:
+
+```bash
+cd cli
+go build -o bin/traceway ./cmd/traceway   # or: just build
+```
+
+## Querying
+
+Once you're logged in with a project selected:
+
+```bash
+traceway exceptions list --since 24h
+traceway exceptions show <hash>
+traceway logs query --since 1h --search "OutOfMemory"
+traceway endpoints list --since 1h
+traceway metrics query --name http.server.duration --aggregation avg --since 1h
+```
+
+| Command                                             | Purpose                                          |
+| --------------------------------------------------- | ------------------------------------------------ |
+| `traceway login` / `logout`                         | Authenticate / forget the stored JWT             |
+| `traceway profiles {list,use}`                      | Manage multiple accounts or instances            |
+| `traceway projects {list,use}`                      | List or select the active project                |
+| `traceway exceptions list`                          | Recent grouped exceptions                        |
+| `traceway exceptions show <hash>`                   | A single exception group + occurrences           |
+| `traceway exceptions archive` / `unarchive <hash>…` | Archive or restore groups (mutating)             |
+| `traceway logs query`                               | Logs filtered by severity / service / search     |
+| `traceway endpoints list`                           | Per-endpoint p50 / p95 / p99 stats               |
+| `traceway metrics query`                            | Time-series metric queries                       |
+
+Run `traceway <command> --help` for the full flag set. Time windows accept `--since 24h` (relative) or `--from` / `--to` (absolute RFC 3339).
+
+## Profiles
+
+Multiple Traceway instances or accounts coexist via profiles. Non-secret config (URL, username) lives in `$XDG_CONFIG_HOME/traceway/config.json` so it can be checked in or managed declaratively (e.g. NixOS); the JWT and the active project live in `$XDG_STATE_HOME/traceway/state.json`.
+
+```bash
+traceway login --url https://traceway.example.com --profile work
+traceway profiles use work
+traceway --profile personal exceptions list   # one-off override
+```
+
+## Output formats
+
+`--output` selects the format. The default is `table` on a TTY and `json` when piped — so scripts and agents always get machine-readable output without passing a flag.
+
+| Format  | Use                                              |
+| ------- | ------------------------------------------------ |
+| `table` | Human-friendly columns (default on a TTY)        |
+| `json`  | Compact JSON (default when stdout isn't a TTY)   |
+| `yaml`  | YAML rendering of the same data                  |
+
+`--fields a,b,c` projects responses down to selected keys:
+
+```bash
+traceway exceptions list --output json --fields exceptionHash,count,lastSeen
+```
+
+## Exit codes & errors
+
+Errors are written to stderr as a stable JSON envelope (prose in `table` mode), and the process exits with a predictable code so scripts and agents can branch reliably:
+
+| Exit | Meaning                                                          |
+| ---- | --------------------------------------------------------------- |
+| 0    | Success                                                         |
+| 1    | Generic / API error                                            |
+| 2    | Usage error (bad flags, missing confirmation, invalid time range) |
+| 3    | Connection failure                                             |
+| 4    | Auth failure                                                   |
+| 5    | Not found                                                      |
+| 6    | Rate limited                                                   |
+| 7    | Server (5xx)                                                   |
+
+```json
+{ "error": "token_expired", "message": "session expired or invalid", "hint": "traceway login", "exit_code": 4 }
+```
+
+The `error` field is a stable snake_case identifier — LLMs and scripts can branch on it.
+
+## Mutations
+
+State-changing commands (`exceptions archive`, `exceptions unarchive`) require explicit consent: pass `--yes`, set `TRACEWAY_ASSUME_YES=1`, or answer the interactive prompt. Called from a non-TTY context (a script or an LLM tool call) without one of these, they fail fast with a `usage_error` (exit 2) rather than hanging on a prompt.
+
+## Uninstall
+
+```bash
+curl -fsSL https://cli.tracewayapp.com/uninstall.sh | bash
+```
+
+Removes the binary; your per-profile config and state are left in place.
+
+---
+
+For the full command reference, the smoke-test harness, and the contributor guide, see the CLI in the monorepo: [github.com/tracewayapp/traceway/tree/main/cli](https://github.com/tracewayapp/traceway/tree/main/cli).

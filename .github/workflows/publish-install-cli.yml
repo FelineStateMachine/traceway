@@ -1,0 +1,56 @@
+name: Publish CLI install site
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "CLI version to pin (X.Y.Z). Leave blank to use the latest cli/* release."
+        required: false
+        type: string
+  push:
+    branches: [main]
+    # Only rebuild when something that ends up on the install site changes.
+    paths:
+      - "cli/scripts/install.sh"
+      - "cli/scripts/install.ps1"
+      - "cli/scripts/uninstall.sh"
+      - "cli/scripts/assemble-install-site.sh"
+      - ".github/workflows/publish-install-cli.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve CLI release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            TAG="cli/v${INPUT_VERSION}"
+          else
+            TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+              --json tagName -q 'map(.tagName) | map(select(startswith("cli/"))) | .[0]' 2>/dev/null || true)"
+          fi
+          [ -n "${TAG:-}" ] || TAG="__NOT_RELEASED__"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "resolved CLI tag: ${TAG}"
+
+      - name: Assemble install site
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: cli/scripts/assemble-install-site.sh "$TAG" site
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site --project-name=traceway-cli-install --branch=main

@@ -34,11 +34,17 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Route inputs through env so they're never interpolated directly into a
+    # run: shell (which would be a script-injection vector). Steps reference
+    # $VERSION / $TAG as ordinary shell variables.
+    env:
+      VERSION: ${{ inputs.version }}
+      TAG: cli/v${{ inputs.version }}
     steps:
       - name: Validate version format
         run: |
-          if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: version must be in X.Y.Z format (got '${{ inputs.version }}')"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: version must be in X.Y.Z format (got '$VERSION')"
             exit 1
           fi
 
@@ -50,7 +56,6 @@ jobs:
 
       - name: Check tag does not already exist
         run: |
-          TAG="cli/v${{ inputs.version }}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Error: tag $TAG already exists"
             exit 1
@@ -65,7 +70,6 @@ jobs:
       - name: Build cross-platform binaries
         working-directory: cli
         env:
-          VERSION: ${{ inputs.version }}
           CGO_ENABLED: "0"
         run: |
           set -euo pipefail
@@ -110,10 +114,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Tag release
-        run: git tag "cli/v${{ inputs.version }}"
+        run: git tag "$TAG"
 
       - name: Push tag
-        run: git push origin "cli/v${{ inputs.version }}"
+        run: git push origin "$TAG"
 
       - name: Create GitHub Release
         env:
@@ -131,9 +135,17 @@ jobs:
             fi
           done
           if [ -z "$NOTES" ]; then
-            NOTES="CLI v${{ inputs.version }}"
+            NOTES="CLI v${VERSION}"
           fi
-          gh release create "cli/v${{ inputs.version }}" \
-            --title "CLI v${{ inputs.version }}" \
+          gh release create "$TAG" \
+            --title "CLI v${VERSION}" \
             --notes "$NOTES" \
             cli/dist/*
+
+      # GitHub suppresses workflow cascades from github.token-created releases,
+      # so trigger the install-site republish explicitly (workflow_dispatch is a
+      # documented exception).
+      - name: Trigger install-site republish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run publish-install-cli.yml --repo "$GITHUB_REPOSITORY" -f version="$VERSION"

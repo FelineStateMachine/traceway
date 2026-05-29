@@ -9,6 +9,10 @@ test:
 smoke-test:
     gotestsum --format pkgname -- -tags smoke ./test/smoke/...
 
+# Smoke test against an ephemeral, locally-seeded backend (no live instance needed)
+smoke-ci:
+    ./scripts/smoke-ci.sh
+
 lint:
     golangci-lint run
 

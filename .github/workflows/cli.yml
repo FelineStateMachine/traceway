@@ -5,10 +5,14 @@ on:
     branches: [main]
     paths:
       - "cli/**"
+      # Backend changes can break the CLI's hand-rolled API contract, so the
+      # smoke job (below) runs against the backend too. Keep it triggered here.
+      - "backend/**"
       - ".github/workflows/cli.yml"
   pull_request:
     paths:
       - "cli/**"
+      - "backend/**"
       - ".github/workflows/cli.yml"
 
 permissions:
@@ -35,3 +39,20 @@ jobs:
 
       - name: Test
         run: go test ./...
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: |
+            cli/go.sum
+            backend/go.sum
+
+      - name: Smoke test against an ephemeral backend
+        run: ./cli/scripts/smoke-ci.sh

@@ -4,6 +4,24 @@ A Go CLI for the [Traceway](https://github.com/tracewayapp/traceway) observabili
 
 ## Install
 
+### Released binary (Linux / macOS)
+
+```bash
+curl -fsSL https://cli.tracewayapp.com/install.sh | bash
+# pin a version: ... | TRACEWAY_CLI_VERSION=1.2.3 bash
+# custom dir:    ... | TRACEWAY_BIN_DIR="$HOME/.local/bin" bash
+```
+
+Windows (PowerShell):
+
+```powershell
+iwr -useb https://cli.tracewayapp.com/install.ps1 | iex
+```
+
+Or download an archive directly from the [releases page](https://github.com/tracewayapp/traceway/releases) (tagged `cli/vX.Y.Z`), verify it against `checksums.txt`, and put `traceway` on your `PATH`.
+
+### From source
+
 This repo ships a Nix dev shell with Go 1.26, `just`, `gotestsum`, `golangci-lint`, `govulncheck`, and `gh`:
 
 ```bash
@@ -21,7 +39,7 @@ go build -o bin/traceway ./cmd/traceway
 
 ```bash
 # 1. log in (creates ~/.config/traceway/config.json + ~/.local/state/traceway/state.json)
-traceway login --url https://cloud.traceway.com
+traceway login --url https://cloud.tracewayapp.com
 
 # 2. pick a project (one-time; future calls use it implicitly)
 traceway projects list
@@ -131,6 +149,14 @@ just smoke-test
 ```
 
 If any of those vars is missing, the smoke tests skip cleanly rather than fail.
+
+To run the same suite against an ephemeral backend (SQLite, seeded automatically — no live instance or env vars needed), use:
+
+```bash
+just smoke-ci    # or: ./scripts/smoke-ci.sh
+```
+
+This builds and starts the embedded backend, seeds a user + project, runs the smoke suite against it, and tears everything down. It's the same path CI runs (`.github/workflows/cli.yml`), so backend API changes that break the CLI's hand-rolled request/response types get caught.
 
 ## Contributing
 

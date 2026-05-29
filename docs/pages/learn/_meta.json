@@ -13,6 +13,7 @@
   "sso": "SSO",
   "embedded-mode": "Embedded Mode",
   "otel-agent": "OTel Agent",
+  "cli": "CLI",
   "build-tags": "Build Tags",
   "contributing": "Contributing"
 }

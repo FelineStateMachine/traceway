@@ -114,6 +114,7 @@ jobs:
             echo "title: \"Backend v${{ inputs.version }}\""
             echo "date: \"$(date -u +%Y-%m-%d)\""
             echo "version: \"${{ inputs.version }}\""
+            echo "category: \"release\""
             echo "---"
             echo ""
             for C in "$C1" "$C2" "$C3" "$C4" "$C5"; do
@@ -161,12 +162,14 @@ jobs:
             --title "Backend v${{ inputs.version }}" \
             --notes "$NOTES"
 
-      - name: Trigger website + docs deploys
+      - name: Trigger website + docs deploys + CLI release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
         run: |
           gh workflow run release-website.yml --ref "${{ github.ref_name }}"
           gh workflow run release-docs.yml --ref "${{ github.ref_name }}"
+          gh workflow run release-cli.yml --ref "${{ github.ref_name }}" -f version="$VERSION"
 
   build-docker:
     runs-on: ubuntu-latest
