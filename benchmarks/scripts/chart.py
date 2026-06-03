@@ -25,11 +25,12 @@ from matplotlib.patches import Patch, Rectangle
 
 
 TIER_ORDER = ["ccx13", "ccx23", "ccx33", "ccx43"]
-MODE_ORDER = ["sqlite", "pgch", "managed-ch"]
+MODE_ORDER = ["sqlite", "duckdb", "pgch", "managed-ch"]
 SIGNALS = ["spans", "metrics", "logs"]
 
 MODE_COLORS = {
     "sqlite": "#4f9fff",
+    "duckdb": "#4fcf8f",
     "pgch": "#ff9f4f",
     "managed-ch": "#7c4fff",
 }
