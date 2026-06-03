@@ -201,4 +201,4 @@ docker run -v /var/lib/traceway:/data ghcr.io/tracewayapp/traceway:sqlite
 
 ## Questions?
 
-If you have questions about Docker image security or signatures, [open an issue](https://github.com/tracewayapp/traceway/issues) or ask in the [Traceway Discord](https://discord.gg/9tPn2SB3).
+If you have questions about Docker image security or signatures, [open an issue](https://github.com/tracewayapp/traceway/issues) or ask in the [Traceway Discord](https://discord.gg/RZq9NT62nc).
