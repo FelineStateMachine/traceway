@@ -53,6 +53,39 @@ type finalReport struct {
 	MaxSustainableItemsPerSec float64          `json:"maxSustainableItemsPerSec,omitempty"`
 	MaxFillLevelPassed        int64            `json:"maxFillLevelPassed,omitempty"`
 	ChRestarted               bool             `json:"chRestarted,omitempty"`
+
+	// Embedded-store summary (SQLite/DuckDB), peak across all steps: total rows
+	// the backend reported ingesting, final telemetry DB file size, and the peak
+	// WAL backlog seen (a large peak means checkpoints fell behind the writes).
+	IngestedRows          int64 `json:"ingestedRows,omitempty"`
+	TelemetryDBBytes      int64 `json:"telemetryDbBytes,omitempty"`
+	TelemetryWALPeakBytes int64 `json:"telemetryWalPeakBytes,omitempty"`
+}
+
+// computeStoreSummary rolls the per-step embedded-store snapshots up into
+// run-level peaks. DB size and ingested rows grow monotonically (modulo a
+// restart resetting the row counter), so the max is the final figure; WAL is
+// reported as its peak to expose checkpoint lag even if it later drained.
+func (r *finalReport) computeStoreSummary() {
+	scan := func(p *phaseResult) {
+		if p == nil {
+			return
+		}
+		for _, s := range p.Steps {
+			if s.CH.IngestedRows > r.IngestedRows {
+				r.IngestedRows = s.CH.IngestedRows
+			}
+			if s.CH.TelemetryDBBytes > r.TelemetryDBBytes {
+				r.TelemetryDBBytes = s.CH.TelemetryDBBytes
+			}
+			if s.CH.TelemetryWALBytes > r.TelemetryWALPeakBytes {
+				r.TelemetryWALPeakBytes = s.CH.TelemetryWALBytes
+			}
+		}
+	}
+	scan(r.Phase1)
+	scan(r.Phase2)
+	scan(r.Phase3)
 }
 
 func (r *finalReport) computeHeadline() {
@@ -111,8 +144,8 @@ func runBatchSizeRamp(ctx context.Context, cfg config, ing *ingester, ingest *la
 		ing.SetBatchSize(batch)
 		s := runOneStep(ctx, cfg, ing, ingest, client, idx+1, batch, cfg.phase1FixedRate)
 		res.Steps = append(res.Steps, s)
-		fmt.Fprintf(stderrPrefix(), "phase1 step %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% mem=%s passed=%t %s\n",
-			s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, memStr(s.CH), s.Passed, s.FailReason)
+		fmt.Fprintf(stderrPrefix(), "phase1 step %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% mem=%s wal=%s passed=%t %s\n",
+			s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, memStr(s.CH), bytesStr(s.CH.TelemetryWALBytes), s.Passed, s.FailReason)
 		if s.Passed {
 			res.MaxBatchSize = batch
 		}
@@ -178,8 +211,8 @@ func runRateRamp(ctx context.Context, cfg config, ing *ingester, ingest *latency
 		ing.SetRequestRate(rate)
 		s := runOneStep(ctx, cfg, ing, ingest, client, stepNo, batch, rate)
 		res.Steps = append(res.Steps, s)
-		fmt.Fprintf(stderrPrefix(), "%s step %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% mem=%s passed=%t %s\n",
-			logPrefix, s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, memStr(s.CH), s.Passed, s.FailReason)
+		fmt.Fprintf(stderrPrefix(), "%s step %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% mem=%s wal=%s passed=%t %s\n",
+			logPrefix, s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, memStr(s.CH), bytesStr(s.CH.TelemetryWALBytes), s.Passed, s.FailReason)
 		if s.Passed {
 			res.MaxRequestRate = rate
 			lastPassRate = rate
@@ -211,8 +244,8 @@ func runRateRamp(ctx context.Context, cfg config, ing *ingester, ingest *latency
 			ing.SetRequestRate(mid)
 			s := runOneStep(ctx, cfg, ing, ingest, client, stepNo, batch, mid)
 			res.Steps = append(res.Steps, s)
-			fmt.Fprintf(stderrPrefix(), "%s bisect %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% mem=%s passed=%t %s\n",
-				logPrefix, s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, memStr(s.CH), s.Passed, s.FailReason)
+			fmt.Fprintf(stderrPrefix(), "%s bisect %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% mem=%s wal=%s passed=%t %s\n",
+				logPrefix, s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, memStr(s.CH), bytesStr(s.CH.TelemetryWALBytes), s.Passed, s.FailReason)
 			if s.Passed {
 				lastPassRate = mid
 				res.MaxRequestRate = mid

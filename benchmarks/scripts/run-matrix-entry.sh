@@ -55,6 +55,15 @@ mkdir -p "${OUT_DIR}"
 cleanup() {
     local rc=$?
     echo "--- teardown for ${RUN_ID} (exit=${rc}) ---" >&2
+    # Grab the SUT's own crash evidence (kernel OOM kills + the RSS at death,
+    # container exit code/OOMKilled, recent logs) BEFORE the box is destroyed.
+    # Runs on every exit path — success, loadgen failure, or Ctrl-C — so a
+    # mid-run OOM is captured rather than inferred. Best-effort; never blocks
+    # teardown.
+    if [[ -n "${SUT_PUBLIC_IP:-}" ]]; then
+        "${SCRIPT_DIR}/sut-forensics.sh" "${SUT_PUBLIC_IP}" "${MODE}" \
+            "${OUT_DIR}/${TIER}-${MODE}-${SIGNAL}-${SCENARIO}${async_suffix:-}-forensics.txt" || true
+    fi
     "${SCRIPT_DIR}/hetzner-down.sh" "${RUN_ID}" || true
     exit "${rc}"
 }

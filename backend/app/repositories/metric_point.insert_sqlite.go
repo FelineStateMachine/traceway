@@ -41,5 +41,9 @@ func (r *metricPointRepository) InsertAsync(ctx context.Context, points []models
 		}
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	db.AddIngestedTelemetryRows(int64(len(points)))
+	return nil
 }

@@ -177,6 +177,7 @@ func main() {
 		out.EndedAt = time.Now().UTC().Format(time.RFC3339)
 		out.ChRestarted = chRestarted.Load()
 		out.computeHeadline()
+		out.computeStoreSummary()
 		if err := writeReportAtomic(cfg.reportOut, &out); err != nil {
 			fmt.Fprintf(os.Stderr, "checkpoint write failed: %v\n", err)
 		}
@@ -252,6 +253,12 @@ func main() {
 	case "read-probe":
 		fmt.Fprintf(os.Stderr, "wrote %s: signal=%s max fill level passed = %d rows\n",
 			cfg.reportOut, cfg.signal, out.MaxFillLevelPassed)
+	}
+
+	// Embedded-store summary (only populated for SQLite/DuckDB runs).
+	if out.TelemetryDBBytes > 0 || out.IngestedRows > 0 {
+		fmt.Fprintf(os.Stderr, "  store: ingested=%s rows  telemetryDB=%s  walPeak=%s\n",
+			countStr(out.IngestedRows), bytesStr(out.TelemetryDBBytes), bytesStr(out.TelemetryWALPeakBytes))
 	}
 
 	if chRestarted.Load() {

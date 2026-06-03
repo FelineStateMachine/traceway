@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/tracewayapp/traceway/backend/app/config"
 
@@ -14,6 +15,20 @@ import (
 var DB *sql.DB          // PostgreSQL-replacement: relational/config data (transactional)
 var TelemetryDB *sql.DB // ClickHouse-replacement: append-only telemetry data (non-transactional)
 var Driver lit.Driver = lit.PostgreSQL
+
+// TelemetryFilePath is the on-disk path of the telemetry store, set by the
+// embedded (SQLite/DuckDB) initializers. Empty for in-memory or pgch. Used to
+// report DB + WAL file sizes via /health/deep so a benchmark can watch the
+// store grow and spot the WAL outrunning checkpoints.
+var TelemetryFilePath string
+
+// ingestedTelemetryRows counts rows the backend has accepted and committed into
+// the telemetry store since this process started (resets on restart, which is
+// itself a signal). Bumped by the metric ingestion path; read by /health/deep.
+var ingestedTelemetryRows atomic.Int64
+
+func AddIngestedTelemetryRows(n int64) { ingestedTelemetryRows.Add(n) }
+func IngestedTelemetryRows() int64     { return ingestedTelemetryRows.Load() }
 
 func IsSQLite() bool {
 	return Driver == lit.SQLite
@@ -76,6 +91,7 @@ func GetDB() *sql.DB {
 }
 
 const TransactionContextKey = "dbTx"
+
 func GetTx(ctx context.Context) *sql.Tx {
 	if tx, ok := ctx.Value(TransactionContextKey).(*sql.Tx); ok {
 		return tx

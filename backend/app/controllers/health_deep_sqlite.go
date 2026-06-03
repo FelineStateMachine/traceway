@@ -9,18 +9,55 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/tracewayapp/traceway/backend/app/db"
 )
 
 // fetchCHHealth is the embedded-mode (SQLite/DuckDB) /health/deep payload. There
 // is no ClickHouse, so CHReachable stays false, but it reports this process's
-// memory and the box total so a benchmark can watch the backend climb toward
-// OOM (or just back up) during ingestion.
+// memory plus telemetry-store progress (rows ingested, DB + WAL file sizes) so a
+// benchmark can watch the backend climb toward OOM or fall behind on ingestion.
 func fetchCHHealth(_ context.Context) HealthDeepResponse {
+	dbBytes, walBytes := telemetryFileSizes()
 	return HealthDeepResponse{
-		CHReachable:      false,
-		MemoryUsageBytes: processRSSBytes(),
-		MemoryTotalBytes: systemTotalMemoryBytes(),
+		CHReachable:       false,
+		MemoryUsageBytes:  processRSSBytes(),
+		MemoryPeakBytes:   processPeakRSSBytes(),
+		MemoryTotalBytes:  systemTotalMemoryBytes(),
+		IngestedRows:      db.IngestedTelemetryRows(),
+		TelemetryDBBytes:  dbBytes,
+		TelemetryWALBytes: walBytes,
 	}
+}
+
+// processPeakRSSBytes returns the peak resident memory the process has ever hit
+// (Linux VmHWM high-water mark). This is the figure that matters for OOM: a
+// burst backlog can spike RSS mid-step and trip the OOM-killer, then drain
+// before the next snapshot — so current RSS reads low while the peak reveals how
+// close it came. Falls back to current RSS where VmHWM is unavailable.
+func processPeakRSSBytes() int64 {
+	if kb := scanKVFileKB("/proc/self/status", "VmHWM:"); kb > 0 {
+		return kb * 1024
+	}
+	return processRSSBytes()
+}
+
+// telemetryFileSizes returns the on-disk size of the telemetry DB file and its
+// WAL sidecar (0 each for in-memory). The WAL is what DuckDB/SQLite checkpoint
+// into the main file; a WAL that keeps growing signals checkpoints lagging the
+// write rate.
+func telemetryFileSizes() (dbBytes, walBytes int64) {
+	path := db.TelemetryFilePath
+	if path == "" {
+		return 0, 0
+	}
+	if fi, err := os.Stat(path); err == nil {
+		dbBytes = fi.Size()
+	}
+	if fi, err := os.Stat(path + ".wal"); err == nil {
+		walBytes = fi.Size()
+	}
+	return dbBytes, walBytes
 }
 
 // processRSSBytes returns this process's resident memory. On Linux it reads the

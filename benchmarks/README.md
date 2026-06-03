@@ -377,6 +377,7 @@ benchmarks/
     sut-bootstrap.sh             # Installs Docker, brings up backend
     reset-managed-ch.sh          # Wipes the managed CH DB between matrix entries
     loadgen-bootstrap.sh         # Cross-compiles + runs loadgen
+    sut-forensics.sh             # Post-run SUT crash evidence (dmesg OOM, exit code, logs)
     seed-project.sh              # /api/register -> JWT + project token JSON
     chart.py                     # matplotlib renderer (throughput + read-probe charts)
     _ssh.sh                      # Shared ssh/rsync helpers

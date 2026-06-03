@@ -43,6 +43,9 @@ func initSQLite() error {
 		return err
 	}
 	TelemetryDB = telDB
+	if telemetryPath != ":memory:" {
+		TelemetryFilePath = telemetryPath
+	}
 	config.Logf("SQLite telemetry database opened at %s", telemetryPath)
 
 	return nil
