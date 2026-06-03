@@ -93,8 +93,21 @@ fi
 # inter-phase cooldown so the SUT can finish digesting Phase 1's wake (zombie
 # goroutines + WAL/checkpoint) before Phase 2 starts. Without this, Phase 1
 # step-cliff contaminates Phase 2's first step.
+#
+# Embedded modes also ingest inline (one decoded batch per in-flight request,
+# held in the Go heap) and saturate at a far lower rate than the pgch stack. The
+# default request-rate ramps jump 5x per step (5->25->100->400), so the first
+# step past the cliff slams the box with ~5x its capacity; the request backlog —
+# each request pinning a full decoded batch — balloons the heap and the kernel
+# OOM-kills the process mid-run. Gentler ramps keep the first failing step a
+# small overshoot so it degrades (high latency/errors) instead of crashing,
+# letting the run find the cliff and reach later phases. The ramps are
+# self-balancing: small tiers fail early (small backlog), big tiers climb higher
+# but have more RAM.
 if [[ ( "${MODE}" == "sqlite" || "${MODE}" == "duckdb" ) && "${SCENARIO}" == "throughput" && "${SMOKE}" != "smoke" ]]; then
-    extra_args+=( --step-drain-seconds 60s --inter-phase-cooldown-seconds 60s )
+    extra_args+=( --step-drain-seconds 60s --inter-phase-cooldown-seconds 60s
+                  --phase2-request-rates 1,3,5,8,12,18,22,25,30
+                  --phase3-request-rates 10,100,400,1000,2000 )
 fi
 
 OUT_PATH="${OUT_DIR}/${TIER}-${MODE}-${SIGNAL}-${SCENARIO}${async_suffix}.json"
