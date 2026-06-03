@@ -135,7 +135,9 @@ jobs:
         if: always()
         with:
           name: result-${{ matrix.tier }}-${{ matrix.mode }}-${{ matrix.signal }}${{ github.event.inputs.async_insert == 'true' && '-async' || '' }}
-          path: benchmarks/_artifact/*.json
+          path: |
+            benchmarks/_artifact/*.json
+            benchmarks/_artifact/*-forensics.txt
           if-no-files-found: warn
 
   aggregate:
