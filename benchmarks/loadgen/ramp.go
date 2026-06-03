@@ -111,8 +111,8 @@ func runBatchSizeRamp(ctx context.Context, cfg config, ing *ingester, ingest *la
 		ing.SetBatchSize(batch)
 		s := runOneStep(ctx, cfg, ing, ingest, client, idx+1, batch, cfg.phase1FixedRate)
 		res.Steps = append(res.Steps, s)
-		fmt.Fprintf(stderrPrefix(), "phase1 step %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% passed=%t %s\n",
-			s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, s.Passed, s.FailReason)
+		fmt.Fprintf(stderrPrefix(), "phase1 step %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% mem=%s passed=%t %s\n",
+			s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, memStr(s.CH), s.Passed, s.FailReason)
 		if s.Passed {
 			res.MaxBatchSize = batch
 		}
@@ -178,8 +178,8 @@ func runRateRamp(ctx context.Context, cfg config, ing *ingester, ingest *latency
 		ing.SetRequestRate(rate)
 		s := runOneStep(ctx, cfg, ing, ingest, client, stepNo, batch, rate)
 		res.Steps = append(res.Steps, s)
-		fmt.Fprintf(stderrPrefix(), "%s step %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% passed=%t %s\n",
-			logPrefix, s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, s.Passed, s.FailReason)
+		fmt.Fprintf(stderrPrefix(), "%s step %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% mem=%s passed=%t %s\n",
+			logPrefix, s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, memStr(s.CH), s.Passed, s.FailReason)
 		if s.Passed {
 			res.MaxRequestRate = rate
 			lastPassRate = rate
@@ -211,8 +211,8 @@ func runRateRamp(ctx context.Context, cfg config, ing *ingester, ingest *latency
 			ing.SetRequestRate(mid)
 			s := runOneStep(ctx, cfg, ing, ingest, client, stepNo, batch, mid)
 			res.Steps = append(res.Steps, s)
-			fmt.Fprintf(stderrPrefix(), "%s bisect %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% passed=%t %s\n",
-				logPrefix, s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, s.Passed, s.FailReason)
+			fmt.Fprintf(stderrPrefix(), "%s bisect %d: batch=%d rate=%.1f items/s=%.0f p99=%.0fms err=%.2f%% mem=%s passed=%t %s\n",
+				logPrefix, s.Step, s.BatchSize, s.RequestRate, s.ActualItemsPerSec, s.Ingest.P99, s.Ingest.ErrRate*100, memStr(s.CH), s.Passed, s.FailReason)
 			if s.Passed {
 				lastPassRate = mid
 				res.MaxRequestRate = mid

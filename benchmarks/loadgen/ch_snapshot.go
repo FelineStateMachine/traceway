@@ -98,3 +98,20 @@ func fetchCHSnapshot(ctx context.Context, cfg config, client *http.Client) chSna
 		MemoryTotalBytes: body.MemoryTotalBytes,
 	}
 }
+
+// memStr renders the SUT memory snapshot compactly for the per-step log, e.g.
+// "5.9/7.6GiB". Returns "?" when the backend reported no memory — either an
+// older build, or the snapshot failed because the backend was already down.
+func memStr(ch chSnapshot) string {
+	if ch.MemoryUsageBytes <= 0 {
+		return "?"
+	}
+	used := float64(ch.MemoryUsageBytes) / (1 << 30)
+	if ch.MemoryTotalBytes > 0 {
+		return fmt.Sprintf("%.1f/%.1fGiB", used, float64(ch.MemoryTotalBytes)/(1<<30))
+	}
+	if used < 1 {
+		return fmt.Sprintf("%.0fMiB", float64(ch.MemoryUsageBytes)/(1<<20))
+	}
+	return fmt.Sprintf("%.1fGiB", used)
+}
