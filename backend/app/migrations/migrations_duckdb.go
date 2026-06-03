@@ -35,6 +35,21 @@ func Run(dbType string) error {
 		return fmt.Errorf("telemetry db migrations: %w", err)
 	}
 
+	// Flush the migration DDL out of the WAL immediately. DuckDB cannot replay
+	// ALTER records against tables whose columns have function defaults
+	// (nextval/now) — replay dies with "GetDefaultDatabase with no default
+	// database set" — and the main DB writes so little that its WAL never hits
+	// the auto-checkpoint threshold, so those records would otherwise sit there
+	// indefinitely. An unclean shutdown (e.g. an OOM kill under load) would then
+	// brick the database: every restart panics replaying the WAL. Checkpointing
+	// here leaves only row-change records in any future WAL, which replay fine.
+	if _, err := db.DB.Exec("CHECKPOINT"); err != nil {
+		return fmt.Errorf("main db post-migration checkpoint: %w", err)
+	}
+	if _, err := db.TelemetryDB.Exec("CHECKPOINT"); err != nil {
+		return fmt.Errorf("telemetry db post-migration checkpoint: %w", err)
+	}
+
 	return nil
 }
 
