@@ -9,7 +9,7 @@
 #                         SSH key named 'benchmark-key'.
 #
 # Common usage:
-#   run-local.sh                        # full matrix (4 tiers x 2 modes x 3 signals), throughput
+#   run-local.sh                        # full matrix (4 tiers x 3 modes x 3 signals), throughput
 #   run-local.sh --scenario read-probe  # same matrix but ingest-and-probe-reads
 #   run-local.sh --smoke                # 1 tier, 1 mode, 1 signal, short steps (~5 min)
 #   run-local.sh --tier ccx13 --mode sqlite --signal spans
@@ -28,7 +28,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 TIERS="ccx13,ccx23,ccx33,ccx43"
-MODES="sqlite,pgch"
+MODES="sqlite,pgch,duckdb"
 SIGNALS="spans,metrics,logs"
 SCENARIO="throughput"
 DURATION="30m"

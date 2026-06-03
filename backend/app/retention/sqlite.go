@@ -35,7 +35,7 @@ var mainRetentionTargets = []struct {
 }
 
 func startSQLiteRetention(ctx context.Context, days int) {
-	if !db.IsSQLite() {
+	if !db.IsEmbedded() {
 		return
 	}
 	if days == 0 {

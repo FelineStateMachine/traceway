@@ -1,4 +1,4 @@
-//go:build !pgch && !duckdb
+//go:build duckdb && !pgch
 
 package migrations
 
@@ -20,18 +20,18 @@ type ExtensionMigration struct {
 
 var ExtensionPostgresMigrations []ExtensionMigration
 
-//go:embed sqlite/*.sql
-var migrationsSqliteFS embed.FS
+//go:embed duckdb/*.sql
+var migrationsDuckDBFS embed.FS
 
-//go:embed sqlite_telemetry/*.sql
-var migrationsSqliteTelemetryFS embed.FS
+//go:embed duckdb_telemetry/*.sql
+var migrationsDuckDBTelemetryFS embed.FS
 
 func Run(dbType string) error {
-	if err := runMigrationsOn(db.DB, migrationsSqliteFS, "sqlite", "schema_migrations"); err != nil {
+	if err := runMigrationsOn(db.DB, migrationsDuckDBFS, "duckdb", "schema_migrations"); err != nil {
 		return fmt.Errorf("main db migrations: %w", err)
 	}
 
-	if err := runMigrationsOn(db.TelemetryDB, migrationsSqliteTelemetryFS, "sqlite_telemetry", "schema_migrations"); err != nil {
+	if err := runMigrationsOn(db.TelemetryDB, migrationsDuckDBTelemetryFS, "duckdb_telemetry", "schema_migrations"); err != nil {
 		return fmt.Errorf("telemetry db migrations: %w", err)
 	}
 
@@ -40,8 +40,8 @@ func Run(dbType string) error {
 
 func runMigrationsOn(target *sql.DB, fsys embed.FS, dir string, trackingTable string) error {
 	_, err := target.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-		version TEXT PRIMARY KEY,
-		applied_at DATETIME DEFAULT (datetime('now'))
+		version VARCHAR PRIMARY KEY,
+		applied_at TIMESTAMP DEFAULT now()
 	)`, trackingTable))
 	if err != nil {
 		return fmt.Errorf("failed to create %s table: %w", trackingTable, err)

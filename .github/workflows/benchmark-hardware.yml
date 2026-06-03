@@ -10,9 +10,9 @@ on:
         required: true
         default: 'ccx13,ccx23,ccx33'
       modes:
-        description: 'Comma-separated DB modes (sqlite,pgch,managed-ch). managed-ch points at an external ClickHouse and requires the BENCH_CH_* repository secrets.'
+        description: 'Comma-separated DB modes (sqlite,pgch,duckdb,managed-ch). duckdb is the embedded DuckDB single-binary; managed-ch points at an external ClickHouse and requires the BENCH_CH_* repository secrets.'
         required: true
-        default: 'sqlite,pgch'
+        default: 'sqlite,pgch,duckdb'
       signals:
         description: 'Comma-separated OTLP signals to benchmark (spans,metrics,logs). Each is a separate fresh VM pair.'
         required: true

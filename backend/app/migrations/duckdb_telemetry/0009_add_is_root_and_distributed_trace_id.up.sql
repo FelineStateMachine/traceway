@@ -1,0 +1,4 @@
+ALTER TABLE endpoints ADD COLUMN is_root BOOLEAN DEFAULT true;
+ALTER TABLE tasks ADD COLUMN is_root BOOLEAN DEFAULT true;
+ALTER TABLE ai_traces ADD COLUMN is_root BOOLEAN DEFAULT true;
+ALTER TABLE ai_traces ADD COLUMN distributed_trace_id TEXT DEFAULT NULL;

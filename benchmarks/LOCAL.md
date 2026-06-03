@@ -47,6 +47,7 @@ Three compose stacks, each pinned to one of the project's existing Dockerfiles:
 | Mode | Compose file | Image | What it tests |
 |------|--------------|-------|---------------|
 | `sqlite` | `benchmarks/compose/docker-compose.sqlite.yml` | `Dockerfile.sqlite` | Single-binary backend with embedded SQLite. Fast to bring up, lower ceiling. |
+| `duckdb` | `benchmarks/compose/docker-compose.duckdb.yml` | `Dockerfile.duckdb` | Single-binary backend with embedded DuckDB telemetry store. cgo build on a glibc base, so the first build is a touch slower than sqlite. Telemetry write concurrency tunable via `DUCKDB_TELEMETRY_MAX_CONNS`. |
 | `pgch` | `benchmarks/compose/docker-compose.pgch.yml` | `Dockerfile.minimal` + clickhouse + postgres | Full prod-shape stack. Slower first build, much higher ceiling. |
 | `managed-ch` | `benchmarks/compose/docker-compose.managed-ch.yml` | `Dockerfile.minimal` + postgres (CH is external) | Same `Dockerfile.minimal` as pgch but pointed at an external managed ClickHouse via env vars. |
 
@@ -55,6 +56,7 @@ compose -f ... up`).
 
 First-time builds:
 - `sqlite` mode: ~3–6 min (npm install + Go build).
+- `duckdb` mode: ~5–9 min (above + cgo link of the DuckDB native library).
 - `pgch` mode: ~6–10 min (above + ClickHouse + Postgres image pulls).
 - `managed-ch` mode: ~3–5 min (same as pgch without the CH pull).
 

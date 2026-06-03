@@ -19,6 +19,18 @@ func IsSQLite() bool {
 	return Driver == lit.SQLite
 }
 
+func IsDuckDB() bool {
+	return Driver == lit.DuckDB
+}
+
+// IsEmbedded reports whether the backend is running against an in-process,
+// single-binary store (SQLite or DuckDB) rather than PostgreSQL + ClickHouse.
+// Workers that only make sense for the embedded deployments (e.g. retention)
+// gate on this.
+func IsEmbedded() bool {
+	return IsSQLite() || IsDuckDB()
+}
+
 func initPostgres() error {
 	cfg := config.Config
 

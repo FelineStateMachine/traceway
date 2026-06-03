@@ -16,8 +16,9 @@ Three signals are tested in separate matrix entries:
 - **metrics** → `POST /api/otel/v1/metrics` (`ExportMetricsServiceRequest`, Gauge data points)
 - **logs** → `POST /api/otel/v1/logs` (`ExportLogsServiceRequest`)
 
-Three DB modes are supported:
+Four DB modes are supported:
 - **sqlite** — single-binary Traceway with embedded SQLite (`Dockerfile.sqlite`).
+- **duckdb** — single-binary Traceway with embedded DuckDB (`Dockerfile.duckdb`). Same two-database split as sqlite (main + telemetry), but the telemetry store is DuckDB. Built with cgo on a glibc base since the DuckDB driver links a native library.
 - **pgch** — full ClickHouse + Postgres stack, all in Docker on the SUT (`Dockerfile.minimal`).
 - **managed-ch** — `Dockerfile.minimal` pointed at an externally-hosted ClickHouse (ClickHouse Cloud, Aiven, Altinity, etc.) via env vars. Postgres still runs locally in the SUT's Docker. See [Running against managed ClickHouse](#running-against-managed-clickhouse).
 

@@ -5,14 +5,16 @@ import "os"
 type Cfg struct {
 	JWTSecret string
 
-	DBType           string
-	PostgresHost     string
-	PostgresPort     string
-	PostgresDatabase string
-	PostgresUsername  string
-	PostgresPassword string
-	PostgresSSLMode  string
-	SQLitePath       string
+	DBType                  string
+	PostgresHost            string
+	PostgresPort            string
+	PostgresDatabase        string
+	PostgresUsername        string
+	PostgresPassword        string
+	PostgresSSLMode         string
+	SQLitePath              string
+	DuckDBPath              string
+	DuckDBTelemetryMaxConns string
 
 	ClickhouseServer   string
 	ClickhouseDatabase string
@@ -77,14 +79,16 @@ func LoadFromEnv() *Cfg {
 	return &Cfg{
 		JWTSecret: os.Getenv("JWT_SECRET"),
 
-		DBType:           os.Getenv("DB_TYPE"),
-		PostgresHost:     os.Getenv("POSTGRES_HOST"),
-		PostgresPort:     os.Getenv("POSTGRES_PORT"),
-		PostgresDatabase: os.Getenv("POSTGRES_DATABASE"),
-		PostgresUsername:  os.Getenv("POSTGRES_USERNAME"),
-		PostgresPassword: os.Getenv("POSTGRES_PASSWORD"),
-		PostgresSSLMode:  os.Getenv("POSTGRES_SSLMODE"),
-		SQLitePath:       os.Getenv("SQLITE_PATH"),
+		DBType:                  os.Getenv("DB_TYPE"),
+		PostgresHost:            os.Getenv("POSTGRES_HOST"),
+		PostgresPort:            os.Getenv("POSTGRES_PORT"),
+		PostgresDatabase:        os.Getenv("POSTGRES_DATABASE"),
+		PostgresUsername:        os.Getenv("POSTGRES_USERNAME"),
+		PostgresPassword:        os.Getenv("POSTGRES_PASSWORD"),
+		PostgresSSLMode:         os.Getenv("POSTGRES_SSLMODE"),
+		SQLitePath:              os.Getenv("SQLITE_PATH"),
+		DuckDBPath:              os.Getenv("DUCKDB_PATH"),
+		DuckDBTelemetryMaxConns: os.Getenv("DUCKDB_TELEMETRY_MAX_CONNS"),
 
 		ClickhouseServer:   os.Getenv("CLICKHOUSE_SERVER"),
 		ClickhouseDatabase: os.Getenv("CLICKHOUSE_DATABASE"),

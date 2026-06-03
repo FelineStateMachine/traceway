@@ -1,0 +1,77 @@
+# ==============================================================================
+# Traceway DuckDB Docker Image
+# Single binary serving API and Frontend with embedded DuckDB.
+# No external databases required. Optional S3 for blob storage.
+#
+# Unlike Dockerfile.sqlite (pure Go, CGO disabled), the DuckDB driver
+# (github.com/marcboeker/go-duckdb) links a prebuilt DuckDB static library via
+# cgo, so this image builds with CGO_ENABLED=1 on a glibc base (Debian) rather
+# than musl (Alpine).
+# ==============================================================================
+
+# ==============================================================================
+# Stage 1: Build Frontend
+# ==============================================================================
+FROM node:22-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+
+RUN npm ci
+
+COPY frontend/ ./
+
+ENV CLOUD_MODE=false
+RUN npm run build
+
+# ==============================================================================
+# Stage 2: Build Backend with embedded frontend (duckdb tag = DuckDB mode)
+# ==============================================================================
+FROM golang:1.25-bookworm AS backend-builder
+
+WORKDIR /app/backend
+
+COPY backend/ ./
+
+COPY --from=frontend-builder /app/frontend/build ./static/frontend/
+
+RUN go mod edit -dropreplace=go.tracewayapp.com -dropreplace=go.tracewayapp.com/tracewaygin
+RUN go mod tidy
+RUN go mod download
+
+# Build WITH the duckdb tag so the DuckDB codepath in app/db/db_duckdb.go is
+# selected. go-duckdb requires cgo, so CGO_ENABLED=1. GOOS/GOARCH are left to
+# the native build platform: the prebuilt DuckDB library is linked per-arch and
+# cross-compiling cgo would need a matching cross toolchain.
+RUN CGO_ENABLED=1 go build -tags duckdb -ldflags="-s -w" -o /traceway ./cmd/traceway
+
+# ==============================================================================
+# Stage 3: Runtime image (glibc base for the cgo-linked binary)
+# ==============================================================================
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates tzdata libstdc++6 wget \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=backend-builder /traceway /usr/local/bin/traceway
+
+RUN mkdir -p /data && chmod 755 /data
+
+WORKDIR /app
+
+# DuckDB databases and local blob storage both live under /data so a single
+# bind-mount or named volume covers all persistent state.
+ENV GIN_MODE=release \
+    DB_TYPE=duckdb \
+    DUCKDB_PATH=/data/traceway.duckdb \
+    STORAGE_TYPE=local \
+    STORAGE_PATH=/data/storage
+
+EXPOSE 80 8082
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget -qO- http://localhost/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/traceway"]

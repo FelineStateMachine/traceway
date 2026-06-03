@@ -6,7 +6,7 @@
 #
 # Usage: run-matrix-entry.sh <tier> <mode> <signal> <duration> <out-dir> [smoke] [async]
 #   <tier>      ccx13 | ccx23 | ccx33 | ccx43
-#   <mode>      sqlite | pgch
+#   <mode>      sqlite | pgch | duckdb
 #   <signal>    spans | metrics | logs
 #   <duration>  Loadgen total runtime, e.g. 30m, 3m
 #   <out-dir>   Directory to write <tier>-<mode>-<signal>.json into
@@ -87,12 +87,13 @@ if [[ "${SMOKE}" == "smoke" ]]; then
     fi
 fi
 
-# SQLite has no merge-idle equivalent — /health/deep returns chReachable=false
-# and waitForMergesIdle skips immediately. Compensate with a longer per-step
-# drain and a fixed inter-phase cooldown so the SUT can finish digesting
-# Phase 1's wake (zombie goroutines + WAL checkpoint) before Phase 2 starts.
-# Without this, Phase 1 step-cliff contaminates Phase 2's first step.
-if [[ "${MODE}" == "sqlite" && "${SCENARIO}" == "throughput" && "${SMOKE}" != "smoke" ]]; then
+# The embedded single-binary modes (SQLite, DuckDB) have no merge-idle
+# equivalent — /health/deep returns chReachable=false and waitForMergesIdle
+# skips immediately. Compensate with a longer per-step drain and a fixed
+# inter-phase cooldown so the SUT can finish digesting Phase 1's wake (zombie
+# goroutines + WAL/checkpoint) before Phase 2 starts. Without this, Phase 1
+# step-cliff contaminates Phase 2's first step.
+if [[ ( "${MODE}" == "sqlite" || "${MODE}" == "duckdb" ) && "${SCENARIO}" == "throughput" && "${SMOKE}" != "smoke" ]]; then
     extra_args+=( --step-drain-seconds 60s --inter-phase-cooldown-seconds 60s )
 fi
 
