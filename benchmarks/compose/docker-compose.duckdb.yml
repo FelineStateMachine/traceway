@@ -10,10 +10,11 @@ services:
       SQLITE_RETENTION_DAYS: "0"
       SESSION_RECORDING_RETENTION_DAYS: "0"
       DUCKDB_TELEMETRY_MAX_CONNS: "${DUCKDB_TELEMETRY_MAX_CONNS:-}"
+      DUCKDB_MEMORY_LIMIT: "${DUCKDB_MEMORY_LIMIT:-70%}"
       GIN_MODE: "release"
     volumes:
       - traceway-bench-duckdb-data:/data
-    restart: on-failure:3
+    restart: on-failure:6
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/health"]
       interval: 5s

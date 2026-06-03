@@ -64,7 +64,6 @@ CREATE TABLE IF NOT EXISTS metric_points (
     tags TEXT NOT NULL DEFAULT '{}',
     recorded_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_metric_points_project_name ON metric_points(project_id, name, recorded_at);
 
 CREATE TABLE IF NOT EXISTS session_recordings (
     id TEXT NOT NULL,

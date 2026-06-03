@@ -15,6 +15,7 @@ type Cfg struct {
 	SQLitePath              string
 	DuckDBPath              string
 	DuckDBTelemetryMaxConns string
+	DuckDBMemoryLimit       string
 
 	ClickhouseServer   string
 	ClickhouseDatabase string
@@ -89,6 +90,7 @@ func LoadFromEnv() *Cfg {
 		SQLitePath:              os.Getenv("SQLITE_PATH"),
 		DuckDBPath:              os.Getenv("DUCKDB_PATH"),
 		DuckDBTelemetryMaxConns: os.Getenv("DUCKDB_TELEMETRY_MAX_CONNS"),
+		DuckDBMemoryLimit:       os.Getenv("DUCKDB_MEMORY_LIMIT"),
 
 		ClickhouseServer:   os.Getenv("CLICKHOUSE_SERVER"),
 		ClickhouseDatabase: os.Getenv("CLICKHOUSE_DATABASE"),

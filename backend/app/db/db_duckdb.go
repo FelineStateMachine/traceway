@@ -70,12 +70,60 @@ func openDuckDB(path string, telemetry bool) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping duckdb at %s: %w", path, err)
 	}
 
+	// memory_limit is a global, instance-wide setting; applying it on the lone
+	// post-Ping connection caps the database before the pool grows. A percentage
+	// (e.g. "70%") is resolved by DuckDB against the box's physical RAM, so it
+	// bounds memory and errors gracefully under pressure instead of letting the
+	// OS OOM-kill the process.
+	if limit := duckDBMemoryLimit(); limit != "" {
+		if _, err := d.Exec("SET memory_limit = '" + limit + "'"); err != nil {
+			return nil, fmt.Errorf("failed to set duckdb memory_limit=%q at %s: %w", limit, path, err)
+		}
+		var resolved string
+		if err := d.QueryRow("SELECT current_setting('memory_limit')").Scan(&resolved); err == nil {
+			config.Logf("DuckDB memory_limit for %s = %s (configured %s)", path, resolved, limit)
+		}
+	}
+
 	if telemetry {
 		d.SetMaxOpenConns(duckDBTelemetryMaxConns())
 	} else {
 		d.SetMaxOpenConns(1)
 	}
 	return d, nil
+}
+
+// duckDBMemoryLimit returns the value passed to DuckDB's memory_limit setting.
+// Accepts an absolute size ("4GB", passed through) or a percentage of physical
+// RAM ("70%"). DuckDB's own parser rejects "%", so a percentage is resolved here
+// against the box's total RAM and handed to DuckDB as MiB — this auto-scales
+// across benchmark tiers. Defaults to 70%; override with DUCKDB_MEMORY_LIMIT.
+// Returns "" (skip the SET, leaving DuckDB's built-in default) when a percentage
+// cannot be resolved on this platform.
+func duckDBMemoryLimit() string {
+	v := strings.TrimSpace(config.Config.DuckDBMemoryLimit)
+	if v == "" {
+		v = "70%"
+	}
+
+	pctStr, isPct := strings.CutSuffix(v, "%")
+	if !isPct {
+		return v
+	}
+
+	pct, err := strconv.ParseFloat(strings.TrimSpace(pctStr), 64)
+	if err != nil || pct <= 0 || pct > 100 {
+		return ""
+	}
+	total := totalPhysicalMemory()
+	if total == 0 {
+		return ""
+	}
+	mib := uint64(float64(total) * pct / 100.0 / (1024 * 1024))
+	if mib == 0 {
+		return ""
+	}
+	return strconv.FormatUint(mib, 10) + "MiB"
 }
 
 // duckDBTelemetryMaxConns sizes the telemetry connection pool. Defaults to the
