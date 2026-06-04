@@ -3,6 +3,7 @@
 package repositories
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -127,10 +128,64 @@ type filePathResult struct {
 	FilePath string `lit:"file_path"`
 }
 
+type avgResult struct {
+	Value float64 `lit:"agg_value"`
+}
+
+type distinctServerResult struct {
+	ServerName string `lit:"sn"`
+}
+
+type tagValueRow struct {
+	TagValue string `lit:"tag_value"`
+}
+
 func init() {
 	models.ExtensionModelRegistrations = append(models.ExtensionModelRegistrations, func(driver lit.Driver) {
 		lit.RegisterModel[timeSeriesResult](driver)
 		lit.RegisterModel[groupedTimeSeriesResult](driver)
 		lit.RegisterModel[filePathResult](driver)
+		lit.RegisterModel[avgResult](driver)
+		lit.RegisterModel[distinctServerResult](driver)
+		lit.RegisterModel[tagValueRow](driver)
 	})
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// collectDiscoveredMetrics folds (name, nullable tag_key) rows into the
+// per-metric tag-key lists, preserving first-seen name order. Shared by the
+// SQLite and DuckDB DiscoverMetrics implementations, whose SQL differs but
+// whose row shape is identical.
+func collectDiscoveredMetrics(rows *sql.Rows) ([]models.DiscoveredMetric, error) {
+	byName := make(map[string]*models.DiscoveredMetric)
+	order := make([]string, 0)
+	for rows.Next() {
+		var name string
+		var tagKey sql.NullString
+		if err := rows.Scan(&name, &tagKey); err != nil {
+			return nil, err
+		}
+		m, ok := byName[name]
+		if !ok {
+			m = &models.DiscoveredMetric{Name: name, TagKeys: []string{}}
+			byName[name] = m
+			order = append(order, name)
+		}
+		if tagKey.Valid && tagKey.String != "" {
+			m.TagKeys = append(m.TagKeys, tagKey.String)
+		}
+	}
+
+	metrics := make([]models.DiscoveredMetric, 0, len(order))
+	for _, n := range order {
+		metrics = append(metrics, *byName[n])
+	}
+	return metrics, rows.Err()
 }

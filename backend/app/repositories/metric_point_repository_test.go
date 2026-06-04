@@ -1,3 +1,5 @@
+//go:build !pgch && !duckdb
+
 package repositories
 
 import (

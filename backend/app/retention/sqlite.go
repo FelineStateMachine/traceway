@@ -64,16 +64,23 @@ func startSQLiteRetention(ctx context.Context, days int) {
 }
 
 func runSQLiteRetention(ctx context.Context, days int) {
-	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(time.RFC3339Nano)
-	params := lit.P{"cutoff": cutoff}
+	cutoffTime := time.Now().UTC().AddDate(0, 0, -days)
+	cutoffStr := cutoffTime.Format(time.RFC3339Nano)
 
 	if db.TelemetryDB != nil {
 		for _, tgt := range telemetryRetentionTargets {
 			if ctx.Err() != nil {
 				return
 			}
+			// On DuckDB, metric_points.recorded_at is a native TIMESTAMP whose
+			// parameters only accept time.Time; every other telemetry column is
+			// still TEXT holding RFC3339Nano strings.
+			var cutoff any = cutoffStr
+			if db.IsDuckDB() && tgt.table == "metric_points" {
+				cutoff = cutoffTime
+			}
 			query := fmt.Sprintf("DELETE FROM %s WHERE %s < :cutoff", tgt.table, tgt.column)
-			if err := lit.DeleteNamed(db.Driver, db.TelemetryDB, query, params); err != nil {
+			if err := lit.DeleteNamed(db.Driver, db.TelemetryDB, query, lit.P{"cutoff": cutoff}); err != nil {
 				traceway.CaptureException(fmt.Errorf("retention: delete from telemetry.%s failed: %w", tgt.table, err))
 			}
 		}
@@ -85,7 +92,7 @@ func runSQLiteRetention(ctx context.Context, days int) {
 				return
 			}
 			query := fmt.Sprintf("DELETE FROM %s WHERE %s < :cutoff", tgt.table, tgt.column)
-			if err := lit.DeleteNamed(db.Driver, db.DB, query, params); err != nil {
+			if err := lit.DeleteNamed(db.Driver, db.DB, query, lit.P{"cutoff": cutoffStr}); err != nil {
 				traceway.CaptureException(fmt.Errorf("retention: delete from main.%s failed: %w", tgt.table, err))
 			}
 		}

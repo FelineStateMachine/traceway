@@ -58,11 +58,11 @@ CREATE TABLE IF NOT EXISTS spans (
 CREATE INDEX IF NOT EXISTS idx_spans_project_trace ON spans(project_id, trace_id);
 
 CREATE TABLE IF NOT EXISTS metric_points (
-    project_id TEXT NOT NULL,
+    project_id UUID NOT NULL,
     name TEXT NOT NULL DEFAULT '',
     value DOUBLE NOT NULL DEFAULT 0,
-    tags TEXT NOT NULL DEFAULT '{}',
-    recorded_at TEXT NOT NULL
+    tags JSON NOT NULL DEFAULT '{}',
+    recorded_at TIMESTAMP NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS session_recordings (

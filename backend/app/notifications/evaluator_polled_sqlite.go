@@ -44,8 +44,8 @@ var polledEvaluators = map[string]RuleEvaluator{
 
 type errorRateConfig struct {
 	ThresholdPercent float64 `json:"thresholdPercent"`
-	LookbackMinutes int     `json:"lookbackMinutes"`
-	MinRequests     int     `json:"minRequests"`
+	LookbackMinutes  int     `json:"lookbackMinutes"`
+	MinRequests      int     `json:"minRequests"`
 }
 
 func evaluateErrorRateThreshold(ctx context.Context, rule *models.NotificationRule, projectId uuid.UUID) (*EvalResult, error) {
@@ -266,34 +266,13 @@ func evaluateMetricThreshold(ctx context.Context, rule *models.NotificationRule,
 		if cfg.Aggregation == "p99" {
 			pct = 0.99
 		}
-		rows, qErr := db.DB.QueryContext(ctx,
-			"SELECT value FROM metric_points WHERE project_id = ? AND name = ? AND recorded_at >= ? AND recorded_at <= ? ORDER BY value ASC",
-			projectId.String(), cfg.MetricName, from.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano))
+		vals, qErr := repositories.MetricPointRepository.GetSortedValues(ctx, projectId, cfg.MetricName, from, now)
 		if qErr != nil {
 			return nil, qErr
 		}
-		defer rows.Close()
-		var vals []float64
-		for rows.Next() {
-			var v float64
-			if err := rows.Scan(&v); err != nil {
-				continue
-			}
-			vals = append(vals, v)
-		}
 		value = computePercentile(vals, pct)
 	default:
-		aggFunc := "avg"
-		switch cfg.Aggregation {
-		case "max":
-			aggFunc = "max"
-		case "min":
-			aggFunc = "min"
-		case "sum":
-			aggFunc = "sum"
-		}
-		query := fmt.Sprintf("SELECT COALESCE(%s(value), 0) FROM metric_points WHERE project_id = ? AND name = ? AND recorded_at >= ? AND recorded_at <= ?", aggFunc)
-		err = db.DB.QueryRowContext(ctx, query, projectId.String(), cfg.MetricName, from.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)).Scan(&value)
+		value, err = repositories.MetricPointRepository.GetAggregateBetween(ctx, projectId, cfg.MetricName, cfg.Aggregation, from, now)
 		if err != nil {
 			return nil, err
 		}
@@ -342,7 +321,10 @@ func evaluateNoData(ctx context.Context, rule *models.NotificationRule, projectI
 	pid := projectId.String()
 
 	if cfg.DataType == "any" {
-		tables := []string{"endpoints", "exception_stack_traces", "metric_points", "tasks"}
+		if latest, ok, err := repositories.MetricPointRepository.LatestRecordedAt(ctx, projectId); err == nil && ok && latest.After(threshold) {
+			return &EvalResult{Fired: false}, nil
+		}
+		tables := []string{"endpoints", "exception_stack_traces", "tasks"}
 		for _, t := range tables {
 			var maxTs string
 			err := db.DB.QueryRowContext(ctx,
@@ -359,14 +341,25 @@ func evaluateNoData(ctx context.Context, rule *models.NotificationRule, projectI
 		return &EvalResult{Fired: true, Message: msg}, nil
 	}
 
+	if cfg.DataType == "metrics" {
+		latest, ok, err := repositories.MetricPointRepository.LatestRecordedAt(ctx, projectId)
+		if err != nil {
+			return nil, err
+		}
+		if ok && latest.After(threshold) {
+			return &EvalResult{Fired: false}, nil
+		}
+		projectName := getProjectName(projectId)
+		msg := buildNoDataMessage(cfg.DataType, cfg.SilenceMinutes, projectName)
+		return &EvalResult{Fired: true, Message: msg}, nil
+	}
+
 	table := ""
 	switch cfg.DataType {
 	case "endpoints":
 		table = "endpoints"
 	case "exceptions":
 		table = "exception_stack_traces"
-	case "metrics":
-		table = "metric_points"
 	case "tasks":
 		table = "tasks"
 	default:
@@ -805,4 +798,3 @@ func evaluateImpactScoreHigh(ctx context.Context, rule *models.NotificationRule,
 func evaluateImpactScoreMedium(ctx context.Context, rule *models.NotificationRule, projectId uuid.UUID) (*EvalResult, error) {
 	return evaluateImpactScore(ctx, rule, projectId, 0.25, buildImpactScoreMediumMessage)
 }
-
